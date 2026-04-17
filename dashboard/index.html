@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CheckMate — Invigilator Dashboard</title>
+  <meta name="description"
+    content="CheckMate invigilator dashboard for real-time exam monitoring and violation control." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #07071a;
+      --surf: #0d0d22;
+      --surf2: #121230;
+      --border: rgba(255, 255, 255, .06);
+      --border-hi: rgba(255, 255, 255, .12);
+      --green: #00c896;
+      --red: #ff3c3c;
+      --blue: #5b9cf6;
+      --orange: #f97316;
+      --yellow: #fbbf24;
+      --text: #d4d4f0;
+      --dim: #6a6a8a;
+      --muted: rgba(255, 255, 255, .18);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ════════════════════════════════════ HEADER */
+    .header {
+      background: var(--surf);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+
+    .hdr-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .hdr-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--green), #009e78);
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 18px rgba(0, 200, 150, .25);
+    }
+
+    .logo-mark svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .brand {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .16em;
+    }
+
+    .h-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border-hi);
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--dim);
+    }
+
+    .live-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(0, 200, 150, .07);
+      border: 1px solid rgba(0, 200, 150, .2);
+      border-radius: 20px;
+      padding: 5px 14px;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: livePulse 1.4s infinite;
+    }
+
+    @keyframes livePulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1)
+      }
+
+      50% {
+        opacity: .35;
+        transform: scale(.8)
+      }
+    }
+
+    .live-lbl {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--green);
+      letter-spacing: .14em;
+    }
+
+    .hdr-btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all .18s;
+      letter-spacing: .03em;
+    }
+
+    .hdr-btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.2);
+    }
+
+    .btn-alarm {
+      background: rgba(0, 200, 150, .08);
+      color: var(--green);
+      border: 1px solid rgba(0, 200, 150, .22);
+    }
+
+    .btn-reset {
+      background: rgba(255, 60, 60, .08);
+      color: var(--red);
+      border: 1px solid rgba(255, 60, 60, .22);
+    }
+
+    .btn-export {
+      background: rgba(91, 156, 246, .08);
+      color: var(--blue);
+      border: 1px solid rgba(91, 156, 246, .22);
+    }
+
+    /* ════════════════════════════════════ LAYOUT */
+    .content {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 24px 32px 60px;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surf);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: border-color .2s;
+    }
+
+    .stat-card:hover {
+      border-color: var(--border-hi);
+    }
+
+    .stat-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .stat-icon.total {
+      background: rgba(91, 156, 246, .1);
+    }
+
+    .stat-icon.safe {
+      background: rgba(0, 200, 150, .1);
+    }
+
+    .stat-icon.alert {
+      background: rgba(255, 60, 60, .1);
+    }
+
+    .stat-num {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 3px;
+    }
+
+    .stat-num.total {
+      color: var(--blue);
+    }
+
+    .stat-num.safe {
+      color: var(--green);
+    }
+
+    .stat-num.alert {
+      color: var(--red);
+    }
+
+    .stat-lbl {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--dim);
+    }
+
+    .sec-ttl {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      margin-bottom: 12px;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 24px;
+    }
+
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ════════════════════════════════════ MACHINE GRID */
+    .machines-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 9px;
+    }
+
+    .machine-tile {
+      background: var(--surf);
+      border: 1px solid rgba(0, 200, 150, .15);
+      border-radius: 10px;
+      padding: 13px 8px 11px;
+      text-align: center;
+      transition: all .3s;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .machine-tile:hover {
+      border-color: rgba(0, 200, 150, .35);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 200, 150, .07);
+    }
+
+    .machine-tile.violation {
+      background: rgba(255, 60, 60, .05);
+      border-color: rgba(255, 60, 60, .35);
+      animation: tileFlash .42s ease 3;
+    }
+
+    .machine-tile.paused {
+      background: rgba(249, 115, 22, .05);
+      border-color: rgba(249, 115, 22, .35);
+    }
+
+    .machine-tile.terminated {
+      background: rgba(100, 100, 120, .05);
+      border-color: rgba(100, 100, 120, .25);
+      opacity: .75;
+    }
+
+    @keyframes tileFlash {
+
+      0%,
+      100% {
+        transform: scale(1)
+      }
+
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 16px rgba(255, 60, 60, .25)
+      }
+    }
+
+    .tile-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      margin: 0 auto 8px;
+    }
+
+    .machine-tile.violation .tile-dot {
+      background: var(--red);
+      animation: dotBlink .8s infinite;
+    }
+
+    .machine-tile.paused .tile-dot {
+      background: var(--orange);
+      animation: dotBlink .8s infinite;
+    }
+
+    .machine-tile.terminated .tile-dot {
+      background: #555580;
+    }
+
+    @keyframes dotBlink {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .2
+      }
+    }
+
+    .tile-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .machine-tile.violation .tile-name {
+      color: var(--red);
+    }
+
+    .machine-tile.paused .tile-name {
+      color: var(--orange);
+    }
+
+    .machine-tile.terminated .tile-name {
+      color: var(--dim);
+    }
+
+    .tile-status {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--green);
+    }
+
+    .machine-tile.violation .tile-status {
+      color: var(--red);
+    }
+
+    .machine-tile.paused .tile-status {
+      color: var(--orange);
+    }
+
+    .machine-tile.terminated .tile-status {
+      color: var(--dim);
+    }
+
+    .tile-vtype {
+      font-size: 9px;
+      color: rgba(255, 80, 80, .6);
+      margin-top: 3px;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    /* Score badge on tile */
+    .tile-score {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      margin-top: 6px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(0, 200, 150, .08);
+      color: var(--green);
+      border: 1px solid rgba(0, 200, 150, .18);
+      transition: all .3s;
+    }
+
+    .tile-score.warn {
+      background: rgba(249, 115, 22, .08);
+      color: var(--orange);
+      border-color: rgba(249, 115, 22, .2);
+    }
+
+    .tile-score.danger {
+      background: rgba(255, 60, 60, .08);
+      color: var(--red);
+      border-color: rgba(255, 60, 60, .2);
+    }
+
+    /* Control button on tile */
+    .tile-ctrl-btn {
+      margin-top: 7px;
+      width: 100%;
+      font-family: 'Inter', sans-serif;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 5px 0;
+      border-radius: 6px;
+      cursor: pointer;
+      background: rgba(91, 156, 246, .07);
+      color: var(--blue);
+      border: 1px solid rgba(91, 156, 246, .18);
+      transition: all .18s;
+      display: block;
+    }
+
+    .tile-ctrl-btn:hover {
+      background: rgba(91, 156, 246, .15);
+      border-color: rgba(91, 156, 246, .3);
+    }
+
+    .machine-tile.terminated .tile-ctrl-btn {
+      opacity: .4;
+      pointer-events: none;
+    }
+
+    /* ════════════════════════════════════ CHART */
+    .chart-card {
+      background: var(--surf);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 20px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .chart-card-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .14em;
+    }
+
+    .chart-total {
+      font-size: 12px;
+      color: var(--dim);
+      margin-bottom: 14px;
+    }
+
+    .chart-total strong {
+      color: var(--red);
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    /* ════════════════════════════════════ LOG TABLE */
+    .table-wrap {
+      background: var(--surf);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .log-table thead tr {
+      background: var(--surf2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-table th {
+      padding: 11px 18px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .13em;
+    }
+
+    .log-table td {
+      padding: 12px 18px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .log-table tbody tr:hover {
+      background: rgba(255, 255, 255, .018);
+    }
+
+    .c-seq {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .c-mid {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .c-ts {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--dim);
+    }
+
+    .empty-row {
+      padding: 36px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge.tabswitch {
+      background: rgba(255, 60, 60, .1);
+      color: #ff3c3c;
+      border: 1px solid rgba(255, 60, 60, .22);
+    }
+
+    .badge.usb {
+      background: rgba(255, 170, 68, .1);
+      color: #ffaa44;
+      border: 1px solid rgba(255, 170, 68, .22);
+    }
+
+    .badge.wifi {
+      background: rgba(187, 136, 255, .1);
+      color: #bb88ff;
+      border: 1px solid rgba(187, 136, 255, .22);
+    }
+
+    .badge.hotspot {
+      background: rgba(91, 156, 246, .1);
+      color: #5b9cf6;
+      border: 1px solid rgba(91, 156, 246, .22);
+    }
+
+    .badge.submitted {
+      background: rgba(0, 200, 150, .1);
+      color: #00c896;
+      border: 1px solid rgba(0, 200, 150, .22);
+    }
+
+    /* ════════════════════════════════════ ALARM BANNER */
+    .alarm-banner {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: linear-gradient(90deg, #b50000, #ff3c3c, #b50000);
+      background-size: 300% 100%;
+      animation: bannerShimmer .9s linear infinite;
+      color: white;
+      text-align: center;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .1em;
+    }
+
+    @keyframes bannerShimmer {
+      0% {
+        background-position: 0%
+      }
+
+      100% {
+        background-position: 300%
+      }
+    }
+
+    /* ════════════════════════════════════ TOAST */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      background: var(--surf2);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-size: 13px;
+      color: var(--text);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all .28s ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ════════════════════════════════════ CONTROL MODAL */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0, 0, 0, .72);
+      backdrop-filter: blur(8px);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .ctrl-modal {
+      background: var(--surf);
+      border: 1px solid var(--border-hi);
+      border-radius: 20px;
+      padding: 32px 36px;
+      width: 440px;
+      max-width: 95vw;
+      box-shadow: 0 32px 80px rgba(0, 0, 0, .6);
+      animation: modalPop .25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes modalPop {
+      from {
+        transform: scale(.92);
+        opacity: 0
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    .modal-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: .08em;
+    }
+
+    .modal-close {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      border: 1px solid var(--border-hi);
+      background: rgba(255, 255, 255, .04);
+      color: var(--dim);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .18s;
+    }
+
+    .modal-close:hover {
+      background: rgba(255, 60, 60, .1);
+      color: var(--red);
+      border-color: rgba(255, 60, 60, .25);
+    }
+
+    /* Machine info strip */
+    .modal-machine-strip {
+      background: rgba(255, 255, 255, .025);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 22px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .mms-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .mms-dot.active {
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(0, 200, 150, .4);
+    }
+
+    .mms-dot.paused {
+      background: var(--orange);
+    }
+
+    .mms-dot.terminated {
+      background: #555580;
+    }
+
+    .mms-dot.violation {
+      background: var(--red);
+      animation: dotBlink .8s infinite;
+    }
+
+    .mms-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .mms-score {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      margin-left: auto;
+    }
+
+    .mms-score .mscore-num {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--green);
+    }
+
+    .mms-score.warn .mscore-num {
+      color: var(--orange);
+    }
+
+    .mms-score.danger .mscore-num {
+      color: var(--red);
+    }
+
+    .mms-status {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--dim);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .mms-status.active {
+      color: var(--green);
+    }
+
+    .mms-status.paused {
+      color: var(--orange);
+    }
+
+    .mms-status.terminated {
+      color: var(--dim);
+    }
+
+    /* Warn textarea */
+    .modal-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 8px;
+    }
+
+    .warn-textarea {
+      width: 100%;
+      min-height: 72px;
+      resize: vertical;
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s;
+      line-height: 1.5;
+    }
+
+    .warn-textarea:focus {
+      border-color: rgba(251, 191, 36, .35);
+    }
+
+    .warn-textarea::placeholder {
+      color: var(--dim);
+    }
+
+    /* Action buttons */
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 12px 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      transition: all .2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .action-btn .ab-icon {
+      font-size: 18px;
+    }
+
+    .action-btn .ab-lbl {
+      font-size: 10px;
+    }
+
+    .ab-warn {
+      background: rgba(251, 191, 36, .07);
+      color: var(--yellow);
+      border: 1px solid rgba(251, 191, 36, .22);
+    }
+
+    .ab-warn:hover {
+      background: rgba(251, 191, 36, .15);
+      border-color: rgba(251, 191, 36, .35);
+    }
+
+    .ab-pause {
+      background: rgba(249, 115, 22, .07);
+      color: var(--orange);
+      border: 1px solid rgba(249, 115, 22, .22);
+    }
+
+    .ab-pause:hover {
+      background: rgba(249, 115, 22, .15);
+      border-color: rgba(249, 115, 22, .35);
+    }
+
+    .ab-resume {
+      background: rgba(0, 200, 150, .07);
+      color: var(--green);
+      border: 1px solid rgba(0, 200, 150, .22);
+    }
+
+    .ab-resume:hover {
+      background: rgba(0, 200, 150, .15);
+      border-color: rgba(0, 200, 150, .35);
+    }
+
+    .ab-terminate {
+      background: rgba(255, 60, 60, .07);
+      color: var(--red);
+      border: 1px solid rgba(255, 60, 60, .22);
+    }
+
+    .ab-terminate:hover {
+      background: rgba(255, 60, 60, .15);
+      border-color: rgba(255, 60, 60, .35);
+    }
+
+    .ab-terminate:disabled,
+    .action-btn:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+      transform: none;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="alarm-banner" id="alarmBanner"></div>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="hdr-left">
+      <div class="logo-mark">
+        <svg viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8.5 2L14 4.8V10C14 12.8 11.5 15.2 8.5 16C5.5 15.2 3 12.8 3 10V4.8L8.5 2Z"
+            fill="rgba(0,200,150,0.18)" stroke="#00c896" stroke-width="1.2" />
+          <path d="M6.2 8.5L7.8 10.1L10.8 7" stroke="#00c896" stroke-width="1.4" stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
+      </div>
+      <span class="brand">CHECKMATE</span>
+      <div class="h-divider"></div>
+      <span class="brand-sub">Invigilator Dashboard</span>
+    </div>
+    <div class="live-pill">
+      <div class="live-dot"></div>
+      <span class="live-lbl">LIVE</span>
+    </div>
+    <div class="hdr-right">
+      <button class="hdr-btn btn-alarm" onclick="unlockAudio()" id="enableAlarmBtn">🔊 Enable Alarm</button>
+      <button class="hdr-btn btn-reset" onclick="resetExam()">↺ Reset Exam</button>
+      <button class="hdr-btn btn-export" onclick="exportReport()">↓ Export CSV</button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon total">🖥</div>
+        <div>
+          <div class="stat-num total" id="totalCount">10</div>
+          <div class="stat-lbl">Total Machines</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon safe">✓</div>
+        <div>
+          <div class="stat-num safe" id="safeCount">10</div>
+          <div class="stat-lbl">Safe</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon alert">⚑</div>
+        <div>
+          <div class="stat-num alert" id="alertCount">0</div>
+          <div class="stat-lbl">Machines with Violations</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MACHINES + CHART side by side -->
+    <div class="main-grid">
+      <div>
+        <div class="sec-ttl">Machine Status</div>
+        <div class="machines-grid" id="machinesGrid"></div>
+      </div>
+      <div>
+        <div class="sec-ttl">Violations by Type</div>
+        <div class="chart-card">
+          <div class="chart-card-title">Breakdown</div>
+          <div class="chart-total" id="chartTotal">Total: <strong>0</strong> violations</div>
+          <canvas id="typeChart" style="max-width:240px;max-height:240px;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIOLATION LOG -->
+    <div class="sec-ttl" style="margin-top:8px;">Violation Log</div>
+    <div class="table-wrap">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Machine</th>
+            <th>Violation Type</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="logBody">
+          <tr>
+            <td colspan="4" class="empty-row">No violations recorded yet</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ════════════════════════════════════ CONTROL MODAL -->
+  <div class="modal-backdrop" id="ctrlModalBackdrop">
+    <div class="ctrl-modal" id="ctrlModal">
+      <div class="modal-header">
+        <div class="modal-title" id="modalTitle">⚙ Control Panel — PC-01</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+
+      <!-- Machine info strip -->
+      <div class="modal-machine-strip">
+        <div class="mms-dot active" id="modalDot"></div>
+        <div>
+          <div class="mms-id" id="modalMachineId">PC-01</div>
+          <div class="mms-status active" id="modalStatus">ACTIVE</div>
+        </div>
+        <div class="mms-score" id="modalScoreWrap">
+          <div class="mscore-num" id="modalScore">100</div>
+          <div style="font-size:10px;color:var(--dim);text-align:right;">/100</div>
+        </div>
+      </div>
+
+      <!-- Warning message textarea -->
+      <div class="modal-label">💬 Custom Warning Message</div>
+      <textarea class="warn-textarea" id="warnMsgInput"
+        placeholder="Type your warning message to the student..."></textarea>
+
+      <!-- Action buttons -->
+      <div class="modal-actions">
+        <button class="action-btn ab-warn" id="btnWarn" onclick="doWarn()">
+          <span class="ab-icon">📢</span><span class="ab-lbl">Warn</span>
+        </button>
+        <button class="action-btn ab-pause" id="btnPause" onclick="doPause()">
+          <span class="ab-icon">⏸</span><span class="ab-lbl">Pause</span>
+        </button>
+        <button class="action-btn ab-resume" id="btnResume" onclick="doResume()" style="display:none;">
+          <span class="ab-icon">▶</span><span class="ab-lbl">Resume</span>
+        </button>
+        <button class="action-btn ab-terminate" id="btnTerminate" onclick="doTerminate()">
+          <span class="ab-icon">🔴</span><span class="ab-lbl">Terminate</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ════════════════════════════════════════════════════════ AUDIO
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AC();
+        } catch (e) { console.error('AudioContext failed:', e); return false; }
+      }
+      return true;
+    }
+
+    function unlockAudio() {
+      if (!initAudio()) { alert('Audio not supported.'); return; }
+      audioCtx.resume().then(() => {
+        playBeep(880, .18, .2);
+        showToast('✓ Alarm enabled — you\'ll hear alerts on violations');
+        document.getElementById('enableAlarmBtn').textContent = '🔊 Alarm On';
+      }).catch(e => alert('Could not enable audio. ' + e));
+    }
+
+    function playBeep(freq, vol, dur) {
+      if (!audioCtx) return;
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.frequency.value = freq; o.type = 'sine';
+      g.gain.setValueAtTime(vol, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + dur);
+      o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + dur + .01);
+    }
+
+    function doPlayAlarm() {
+      if (!audioCtx) return;
+      const ctx = audioCtx, now = ctx.currentTime + .05, half = 0.5, cycles = 4, vol = .38;
+      for (let c = 0; c < cycles; c++) {
+        const tU = now + c * (half * 2);
+        const oU = ctx.createOscillator(), gU = ctx.createGain();
+        oU.connect(gU); gU.connect(ctx.destination); oU.type = 'sine';
+        oU.frequency.setValueAtTime(600, tU); oU.frequency.linearRampToValueAtTime(880, tU + half);
+        gU.gain.setValueAtTime(0, tU); gU.gain.linearRampToValueAtTime(vol, tU + .06);
+        gU.gain.setValueAtTime(vol, tU + half - .06); gU.gain.linearRampToValueAtTime(0, tU + half);
+        oU.start(tU); oU.stop(tU + half + .01);
+        const tD = tU + half;
+        const oD = ctx.createOscillator(), gD = ctx.createGain();
+        oD.connect(gD); gD.connect(ctx.destination); oD.type = 'sine';
+        oD.frequency.setValueAtTime(880, tD); oD.frequency.linearRampToValueAtTime(600, tD + half);
+        gD.gain.setValueAtTime(0, tD); gD.gain.linearRampToValueAtTime(vol, tD + .06);
+        gD.gain.setValueAtTime(vol, tD + half - .06); gD.gain.linearRampToValueAtTime(0, tD + half);
+        oD.start(tD); oD.stop(tD + half + .01);
+      }
+    }
+
+    function playAlarm() {
+      if (!initAudio()) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume().then(doPlayAlarm).catch(() => { });
+      else if (audioCtx.state === 'running') doPlayAlarm();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function exportReport() {
+      if (!violationLog || violationLog.length === 0) { alert('No violations to export!'); return; }
+      let csv = 'Sr No,Machine ID,Violation Type,Timestamp\n';
+      violationLog.forEach((v, i) => { csv += `${i + 1},${v.machineId},${v.type},${v.timestamp}\n`; });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url;
+      a.download = `checkmate_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click(); URL.revokeObjectURL(url);
+    }
+
+    // ════════════════════════════════════════════════════════ DATA
+    const socket = io('http://localhost:3000');
+    const TOTAL = 10;
+    let violationLog = [];
+    let typeCounts = {};
+    let alertedMachines = new Set();
+    let typeChart = null;
+
+    // Per-machine live score + status cache
+    const machineScores = {};   // machineId → score number
+    const machineStatuses = {};   // machineId → 'active'|'paused'|'terminated'|'violation'
+
+    // ════════════════════════════════════════════════════════ LOAD SESSIONS FIRST (before rendering tiles)
+    let sessionsData = {};
+    fetch('http://localhost:3000/sessions')
+      .then(r => r.json())
+      .then(sessions => {
+        sessions.forEach(s => {
+          sessionsData[s.machine_id] = s;
+        });
+        renderMachines();  // Render after loading sessions
+        loadPastViolations();  // Then load violations
+      })
+      .catch(e => {
+        console.warn('Could not load sessions:', e);
+        renderMachines();  // Render even if load fails
+        loadPastViolations();
+      });
+
+    // ════════════════════════════════════════════════════════ MACHINE TILES
+    function renderMachines() {
+      const grid = document.getElementById('machinesGrid');
+      for (let i = 1; i <= TOTAL; i++) {
+        const id = `PC-${String(i).padStart(2, '0')}`;
+        // Load score from sessionData if available, otherwise default to 100
+        machineScores[id] = sessionsData[id]?.current_score ?? 100;
+        machineStatuses[id] = sessionsData[id]?.status ?? 'active';
+
+        const tile = document.createElement('div');
+        tile.className = 'machine-tile'; tile.id = `tile-${id}`;
+        tile.innerHTML = `
+          <div class="tile-dot"></div>
+          <div class="tile-name">${id}</div>
+          <div class="tile-status">SAFE</div>
+          <div class="tile-vtype"></div>
+          <div class="tile-score" id="score-${id}">${machineScores[id]}</div>
+          <button class="tile-ctrl-btn" onclick="openModal('${id}', event)">⚙ Control</button>
+        `;
+        grid.appendChild(tile);
+      }
+    }
+
+    function loadPastViolations() {
+      // Load past violations
+      fetch('http://localhost:3000/violations')
+        .then(r => r.json())
+        .then(data => {
+          data.reverse().forEach(v => {
+            triggerAlert(v.machineId, v.type);
+            addToLog(v.machineId, v.type, v.timestamp);
+            updateStats(v.machineId);
+            updateChartData(v.type, v.machineId);
+          });
+          const total = Object.values(typeCounts).reduce((a, b) => a + b, 0);
+          if (total > 0) document.getElementById('chartTotal').innerHTML = `Total: <strong>${total}</strong> violations`;
+        })
+        .catch(e => console.warn('Could not load violations:', e))
+        .finally(() => initChart());
+    }
+
+    function isExamMachine(machineId) { return /^PC-\d{2}$/.test(machineId); }
+
+    function triggerAlert(machineId, type) {
+      const tile = document.getElementById(`tile-${machineId}`);
+      if (!tile) return;
+      tile.className = 'machine-tile violation';
+      tile.querySelector('.tile-status').textContent = 'ALERT';
+      tile.querySelector('.tile-vtype').textContent = type;
+    }
+
+    function updateStats(machineId) {
+      if (!isExamMachine(machineId)) return;
+      if (alertedMachines.has(machineId)) return;
+      alertedMachines.add(machineId);
+      document.getElementById('alertCount').textContent = alertedMachines.size;
+      document.getElementById('safeCount').textContent = Math.max(0, TOTAL - alertedMachines.size);
+    }
+
+    // Update the score badge on a tile
+    function updateTileScore(machineId, score) {
+      if (!isExamMachine(machineId)) return;
+      machineScores[machineId] = score;
+      const badgeEl = document.getElementById(`score-${machineId}`);
+      if (!badgeEl) return;
+      badgeEl.textContent = score;
+      badgeEl.className = 'tile-score' + (score < 50 ? ' danger' : score < 70 ? ' warn' : '');
+    }
+
+    // Apply status class to tile (paused / terminated / active)
+    function applyTileStatus(machineId, status) {
+      if (!isExamMachine(machineId)) return;
+      machineStatuses[machineId] = status;
+      const tile = document.getElementById(`tile-${machineId}`);
+      if (!tile) return;
+      // Don't clobber a violation class with 'active'
+      if (status === 'active' && tile.classList.contains('violation')) return;
+      tile.className = `machine-tile ${status === 'active' ? '' : status}`;
+      const statusEl = tile.querySelector('.tile-status');
+      if (status === 'paused') { statusEl.textContent = 'PAUSED'; }
+      if (status === 'terminated') { statusEl.textContent = 'ENDED'; }
+      if (status === 'active') { statusEl.textContent = 'SAFE'; }
+    }
+
+    function addToLog(machineId, type, timestamp) {
+      violationLog.unshift({ machineId, type, timestamp });
+      const tbody = document.getElementById('logBody');
+      tbody.innerHTML = violationLog.map((v, i) => {
+        let cls = 'hotspot';
+        // Check for submitted/terminated violations FIRST (green), before tab/usb/wifi checks
+        if (v.type.includes('Terminate') || v.type.includes('Exam') || v.type.includes('Submit')) cls = 'submitted';
+        else if (v.type === 'Tab Switch' || v.type.includes('Tab')) cls = 'tabswitch';
+        else if (v.type === 'USB Device' || v.type.includes('USB')) cls = 'usb';
+        else if (v.type === 'Unauthorized WiFi' || v.type.includes('WiFi')) cls = 'wifi';
+        return `<tr>
+          <td><span class="c-seq">${String(violationLog.length - i).padStart(2, '0')}</span></td>
+          <td><span class="c-mid">${v.machineId}</span></td>
+          <td><span class="badge ${cls}">${v.type}</span></td>
+          <td><span class="c-ts">${v.timestamp}</span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ════════════════════════════════════════════════════════ CHART
+    const VIOLATION_COLORS = {
+      'Tab Switch': '#ff3c3c', 'USB Device': '#ffaa44', 'Unauthorized WiFi': '#bb88ff',
+      'Hotspot': '#5b9cf6', 'Exam Submitted': '#00c896', 'Default': '#8888aa'
+    };
+    function getViolationColor(type) {
+      if (type.includes('Exam Terminated') || type.includes('Terminate')) return '#00c896';
+      if (VIOLATION_COLORS[type]) return VIOLATION_COLORS[type];
+      if (type.includes('Tab')) return VIOLATION_COLORS['Tab Switch'];
+      if (type.includes('USB')) return VIOLATION_COLORS['USB Device'];
+      if (type.includes('WiFi')) return VIOLATION_COLORS['Unauthorized WiFi'];
+      if (type.includes('Hotspot')) return VIOLATION_COLORS['Hotspot'];
+      if (type.includes('Exam') || type.includes('Submit')) return VIOLATION_COLORS['Exam Submitted'];
+      return VIOLATION_COLORS['Default'];
+    }
+
+    function initChart() {
+      if (typeChart) { typeChart.destroy(); typeChart = null; }
+      const labels = Object.keys(typeCounts), data = Object.values(typeCounts), hasData = labels.length > 0;
+      typeChart = new Chart(document.getElementById('typeChart'), {
+        type: 'doughnut',
+        data: {
+          labels: hasData ? labels : ['No violations yet'],
+          datasets: [{
+            data: hasData ? data : [1],
+            backgroundColor: hasData ? labels.map(l => getViolationColor(l)) : ['rgba(255,255,255,.05)'],
+            borderColor: '#0d0d22', borderWidth: 3, hoverOffset: 8
+          }]
+        },
+        options: {
+          cutout: '68%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#8888aa', padding: 16, font: { size: 12, family: 'Inter' }, usePointStyle: true, pointStyleWidth: 8 } },
+            tooltip: { callbacks: { label: ctx => { if (!Object.keys(typeCounts).length) return ' No data yet'; return ` ${ctx.label}: ${ctx.raw} violation${ctx.raw !== 1 ? 's' : ''}`; } } }
+          }
+        }
+      });
+    }
+
+    function updateChartData(type, machineId) {
+      if (!isExamMachine(machineId)) return;
+      // Count each violation independently - don't deduplicate
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+      if (!typeChart) { initChart(); return; }
+      const labels = Object.keys(typeCounts), data = Object.values(typeCounts);
+      typeChart.data.labels = labels; typeChart.data.datasets[0].data = data;
+      typeChart.data.datasets[0].backgroundColor = labels.map(l => getViolationColor(l));
+      typeChart.update('none');
+      document.getElementById('chartTotal').innerHTML = `Total: <strong>${data.reduce((a, b) => a + b, 0)}</strong> violations`;
+    }
+
+    function showBanner(machineId, type) {
+      const b = document.getElementById('alarmBanner');
+      b.textContent = `⚠  VIOLATION DETECTED — ${machineId}  —  ${type}`;
+      b.style.display = 'block';
+      setTimeout(() => b.style.display = 'none', 5000);
+    }
+
+    function resetExam() {
+      if (confirm('Reset all violations and start fresh exam?')) {
+        fetch('http://localhost:3000/reset', { method: 'POST' }).then(() => {
+          violationLog = []; typeCounts = {}; alertedMachines = new Set();
+          location.reload();
+        });
+      }
+    }
+
+    // ════════════════════════════════════════════════════════ CONTROL MODAL
+    let activeModalMachine = null;
+
+    function openModal(machineId, e) {
+      e && e.stopPropagation();
+      activeModalMachine = machineId;
+      const score = machineScores[machineId] || 100;
+      const status = machineStatuses[machineId] || 'active';
+
+      document.getElementById('modalTitle').textContent = `⚙ Control Panel — ${machineId}`;
+      document.getElementById('modalMachineId').textContent = machineId;
+
+      // Dot
+      const dot = document.getElementById('modalDot');
+      dot.className = `mms-dot ${status}`;
+
+      // Status text
+      const statusEl = document.getElementById('modalStatus');
+      statusEl.textContent = status.toUpperCase();
+      statusEl.className = `mms-status ${status}`;
+
+      // Score
+      const scoreWrap = document.getElementById('modalScoreWrap');
+      document.getElementById('modalScore').textContent = score;
+      scoreWrap.className = 'mms-score' + (score < 50 ? ' danger' : score < 70 ? ' warn' : '');
+
+      // Warn message placeholder
+      document.getElementById('warnMsgInput').value = '';
+
+      // Show/hide Pause vs Resume based on status
+      document.getElementById('btnPause').style.display = (status === 'paused') ? 'none' : '';
+      document.getElementById('btnResume').style.display = (status === 'paused') ? '' : 'none';
+
+      // Disable terminate if already terminated
+      document.getElementById('btnTerminate').disabled = (status === 'terminated');
+      document.getElementById('btnWarn').disabled = (status === 'terminated');
+      document.getElementById('btnPause').disabled = (status === 'terminated');
+
+      document.getElementById('ctrlModalBackdrop').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('ctrlModalBackdrop').classList.remove('open');
+      activeModalMachine = null;
+    }
+
+    // Close on backdrop click
+    document.getElementById('ctrlModalBackdrop').addEventListener('click', function (e) {
+      if (e.target === this) closeModal();
+    });
+
+    function doWarn() {
+      if (!activeModalMachine) return;
+      const msg = document.getElementById('warnMsgInput').value.trim()
+        || 'Please maintain exam integrity and focus on your examination.';
+      socket.emit('admin_warn', { machineId: activeModalMachine, message: msg });
+      showToast(`📢 Warning sent to ${activeModalMachine}`);
+      closeModal();
+    }
+
+    function doPause() {
+      if (!activeModalMachine) return;
+      if (!confirm(`Pause exam for ${activeModalMachine}?`)) return;
+      socket.emit('admin_pause', { machineId: activeModalMachine });
+      showToast(`⏸ Exam paused for ${activeModalMachine}`);
+      closeModal();
+    }
+
+    function doResume() {
+      if (!activeModalMachine) return;
+      socket.emit('admin_resume', { machineId: activeModalMachine });
+      showToast(`▶ Exam resumed for ${activeModalMachine}`);
+      closeModal();
+    }
+
+    function doTerminate() {
+      if (!activeModalMachine) return;
+      if (!confirm(`⚠ TERMINATE exam for ${activeModalMachine}? This cannot be undone.`)) return;
+      socket.emit('admin_terminate', { machineId: activeModalMachine });
+      showToast(`🔴 Exam terminated for ${activeModalMachine}`);
+      closeModal();
+    }
+
+    // ════════════════════════════════════════════════════════ SOCKET EVENTS
+    const SILENT_TYPES = ['Exam Submitted', 'Auto Submit'];
+    function isSilentType(type) { return SILENT_TYPES.some(s => type.includes(s)) || type.includes('Exam'); }
+
+    socket.on('violation', ({ machineId, type, timestamp, scorePayload }) => {
+      triggerAlert(machineId, type);
+      addToLog(machineId, type, timestamp);
+      updateStats(machineId);
+      updateChartData(type, machineId);
+      // Update tile score if server returned one
+      if (scorePayload) updateTileScore(machineId, scorePayload.current_score);
+      if (!isSilentType(type)) { playAlarm(); }
+      showBanner(machineId, type);
+    });
+
+    // Live score update from another client (student) triggering penalty
+    socket.on('score_update', ({ machineId, current_score }) => {
+      updateTileScore(machineId, current_score);
+    });
+
+    // Status change from admin actions
+    socket.on('status_change', ({ machineId, status, finalScore }) => {
+      applyTileStatus(machineId, status);
+      if (finalScore !== undefined) updateTileScore(machineId, finalScore);
+    });
+
+    socket.on('reset', () => location.reload());
+
+    // ════════════════════════════════════════════════════════ INITIAL LOAD
+    // Sessions and violations are already loaded in renderMachines() and loadPastViolations()
+  </script>
+</body>
+
+</html>

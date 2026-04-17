@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CheckMate - Student Exam</title>
+  <meta name="description" content="CheckMate secure exam interface with real-time integrity monitoring." />
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Sora:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #06060f;
+      color: white;
+      min-height: 100vh;
+    }
+
+    /* ═══════════════════════════════════════════════════════ HEADER */
+    .header {
+      background: rgba(6, 6, 15, 0.95);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 0 40px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    }
+
+    .logo-inner {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: #06060f;
+    }
+
+    .brand {
+      font-family: 'Sora', sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+    }
+
+    .student-info {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.806);
+      letter-spacing: 0.08em;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* ═══════════════════════════════════════════════════════ NOTIFICATIONS (HEADER) */
+    .notif-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .notif-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      color: rgba(244, 244, 244, 0.9);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all 0.2s ease;
+    }
+
+    .notif-btn:hover {
+      background: rgba(255, 255, 255, 0.566);
+      border-color: rgba(255, 255, 255, 0.523);
+      transform: translateY(-1px);
+    }
+
+    .notif-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #0b0b14;
+      background: linear-gradient(135deg, #fbbf24, #f97316);
+      box-shadow: 0 0 0 2px rgba(6, 6, 15, 0.95);
+    }
+
+    .notif-badge.show {
+      display: flex;
+    }
+
+    .notif-panel {
+      position: absolute;
+      right: 0;
+      top: 50px;
+      width: min(420px, calc(100vw - 32px));
+      background: rgba(10, 10, 22, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+      z-index: 200;
+      backdrop-filter: blur(18px);
+    }
+
+    .notif-panel.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .notif-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .notif-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.957);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .notif-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .notif-link {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.934);
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      padding: 6px 8px;
+      border-radius: 10px;
+      transition: all 0.15s ease;
+    }
+
+    .notif-link:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(250, 248, 248, 0.954);
+    }
+
+    .notif-list {
+      max-height: min(420px, calc(100vh - 140px));
+      overflow: auto;
+    }
+
+    .notif-empty {
+      padding: 18px 16px;
+      color: rgba(248, 248, 248, 0.941);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .notif-item {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .notif-item:last-child {
+      border-bottom: 0;
+    }
+
+    .ni-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      margin-top: 5px;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .notif-item.unread .ni-dot {
+      background: #f97316;
+      box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);
+    }
+
+    .ni-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ni-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+
+    .ni-type {
+      font-weight: 700;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.88);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ni-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(253, 253, 253, 0.868);
+      flex-shrink: 0;
+      letter-spacing: 0.06em;
+    }
+
+    .ni-desc {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.893);
+      line-height: 1.45;
+    }
+
+    .ni-desc strong {
+      color: rgba(255, 255, 255, 0.9);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
+    .timer {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 500;
+      color: #10b981;
+      letter-spacing: 0.1em;
+      transition: color 0.3s;
+    }
+
+    .timer.warning {
+      color: #f97316;
+    }
+
+    .timer.danger {
+      color: #ef4444;
+      animation: timerPulse 0.5s infinite;
+    }
+
+    @keyframes timerPulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .warning-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.772);
+      letter-spacing: 0.08em;
+    }
+
+    .warning-count span {
+      color: #f97316;
+      font-weight: 600;
+    }
+
+    /* ═══════════════════════════════════════════════════════ LIVE SCORE BAR */
+    .score-bar {
+      background: rgba(255, 255, 255, 0.025);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 10px 40px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      position: sticky;
+      top: 64px;
+      z-index: 90;
+      backdrop-filter: blur(12px);
+    }
+
+    .score-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.783);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .score-shield {
+      font-size: 13px;
+    }
+
+    .score-track {
+      flex: 1;
+      max-width: 220px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .score-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease;
+      background: linear-gradient(90deg, #10b981, #059669);
+    }
+
+    .score-fill.warn {
+      background: linear-gradient(90deg, #f97316, #ea580c);
+    }
+
+    .score-fill.danger {
+      background: linear-gradient(90deg, #ef4444, #b91c1c);
+    }
+
+    .score-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: #10b981;
+      transition: color 0.4s;
+      min-width: 52px;
+    }
+
+    .score-number.warn {
+      color: #f97316;
+    }
+
+    .score-number.danger {
+      color: #ef4444;
+    }
+
+    /* Score penalty toast (slides in from right inside the bar) */
+    .penalty-toast {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      padding: 5px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #ef4444;
+      opacity: 0;
+      transform: translateX(16px);
+      transition: all 0.3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .penalty-toast.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .penalty-toast .p-icon {
+      font-size: 13px;
+    }
+
+    .penalty-toast .p-text {
+      font-weight: 600;
+    }
+
+    .penalty-toast .p-reason {
+      color: rgba(239, 68, 68, 0.6);
+    }
+
+    /* Fixed penalty notification (always visible while exam area scrolls) */
+    .penalty-notification {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 8000;
+      max-width: min(360px, calc(100vw - 32px));
+      background: linear-gradient(145deg, rgba(30, 10, 12, 0.98), rgba(15, 8, 10, 0.98));
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 14px;
+      padding: 14px 18px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(239, 68, 68, 0.08);
+      font-family: 'DM Sans', sans-serif;
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+      pointer-events: none;
+      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+    }
+
+    .penalty-notification.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .penalty-notification .pn-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #fca5a5;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .penalty-notification .pn-main {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.45;
+      margin-bottom: 6px;
+    }
+
+    .penalty-notification .pn-main .pn-marks {
+      color: #ef4444;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
+    .penalty-notification .pn-reason {
+      color: rgba(255, 255, 255, 0.863);
+      font-weight: 500;
+    }
+
+    .penalty-notification .pn-foot {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: rgba(244, 244, 244, 0.824);
+      letter-spacing: 0.04em;
+    }
+
+    .penalty-notification .pn-foot strong {
+      color: #f87171;
+      font-weight: 600;
+    }
+
+    /* ═══════════════════════════════════════════════════════ MAIN */
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ═══════════════════════════════════════════════════════ PROGRESS */
+    .progress-bar {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 4px;
+      height: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #059669);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.785);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.08em;
+    }
+
+    /* ═══════════════════════════════════════════════════════ QUESTION CARD */
+    .question-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 32px;
+      transition: all 0.3s ease;
+    }
+
+    .question-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .q-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.648);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .q-type-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    .badge-mcq {
+      background: rgba(99, 102, 241, .1);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, .2);
+    }
+
+    .badge-code {
+      background: rgba(16, 185, 129, .1);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, .2);
+    }
+
+    .question-text {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 17px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.85);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .option {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .option:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.12);
+      transform: translateX(4px);
+    }
+
+    .option.selected {
+      background: rgba(99, 102, 241, 0.08);
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+
+    .option-key {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.667);
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .option.selected .option-key {
+      background: rgba(99, 102, 241, .2);
+      border-color: rgba(99, 102, 241, .4);
+      color: #818cf8;
+    }
+
+    .option-text {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.667);
+      transition: color .2s;
+    }
+
+    .option.selected .option-text {
+      color: rgba(255, 255, 255, .9);
+    }
+
+    .code-editor {
+      width: 100%;
+      min-height: 200px;
+      background: rgba(0, 0, 0, .3);
+      border: 1px solid rgba(255, 255, 255, .08);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: rgba(255, 255, 255, .8);
+      resize: vertical;
+      outline: none;
+      line-height: 1.7;
+      transition: border-color .2s;
+    }
+
+    .code-editor:focus {
+      border-color: rgba(16, 185, 129, .3);
+    }
+
+    .code-hint {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.518);
+      margin-bottom: 10px;
+      letter-spacing: .05em;
+    }
+
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 24px;
+    }
+
+    .btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 12px 28px;
+      border-radius: 12px;
+      border: 1px solid;
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.15);
+    }
+
+    .btn:disabled {
+      opacity: .3;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-prev {
+      background: rgba(255, 255, 255, .04);
+      color: rgba(255, 255, 255, 0.728);
+      border-color: rgba(255, 255, 255, .08);
+    }
+
+    .btn-next {
+      background: rgba(99, 102, 241, .1);
+      color: #818cf8;
+      border-color: rgba(99, 102, 241, .25);
+    }
+
+    .btn-submit {
+      background: rgba(16, 185, 129, .1);
+      color: #10b981;
+      border-color: rgba(16, 185, 129, .25);
+    }
+
+    .q-navigator {
+      background: rgba(255, 255, 255, .02);
+      border: 1px solid rgba(255, 255, 255, .06);
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .q-nav-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.701);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+
+    .q-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      background: rgba(255, 255, 255, .02);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, .3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .q-dot:hover {
+      background: rgba(255, 255, 255, .06);
+    }
+
+    .q-dot.answered {
+      background: rgba(16, 185, 129, .1);
+      border-color: rgba(16, 185, 129, .3);
+      color: #10b981;
+    }
+
+    .q-dot.current {
+      background: rgba(99, 102, 241, .15);
+      border-color: rgba(99, 102, 241, .4);
+      color: #818cf8;
+    }
+
+    /* ═══════════════════════════════════════════════════════ OVERLAYS */
+
+    /* -- Base overlay style -- */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      backdrop-filter: blur(10px);
+    }
+
+    .overlay.active {
+      display: flex;
+    }
+
+    /* ── Tab-switch freeze (existing, self-dismissable) */
+    .freeze-overlay {
+      background: rgba(0, 0, 0, 0.92);
+    }
+
+    .freeze-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: #ef4444;
+      letter-spacing: .05em;
+      text-align: center;
+    }
+
+    .freeze-subtitle {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      color: rgba(255, 255, 255, .5);
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.6;
+    }
+
+    .freeze-warning-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #f97316;
+      letter-spacing: .1em;
+    }
+
+    .freeze-btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 14px 36px;
+      border-radius: 12px;
+      background: rgba(239, 68, 68, .1);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, .3);
+      cursor: pointer;
+      transition: all .2s;
+      margin-top: 8px;
+    }
+
+    .freeze-btn:hover {
+      background: rgba(239, 68, 68, .2);
+      transform: translateY(-1px);
+    }
+
+    /* ── Admin WARN overlay (slides in from bottom — dismissable) */
+    .warn-overlay {
+      background: rgba(0, 0, 0, 0.85);
+    }
+
+    .warn-card {
+      background: rgba(251, 191, 36, .04);
+      border: 1px solid rgba(251, 191, 36, .2);
+      border-radius: 20px;
+      padding: 36px 44px;
+      text-align: center;
+      max-width: 480px;
+      animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(40px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .warn-icon {
+      font-size: 40px;
+      margin-bottom: 16px;
+    }
+
+    .warn-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: #fbbf24;
+      margin-bottom: 12px;
+    }
+
+    .warn-message {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.683);
+      line-height: 1.6;
+      margin-bottom: 24px;
+      font-style: italic;
+    }
+
+    .warn-dismiss {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 12px 32px;
+      border-radius: 10px;
+      background: rgba(251, 191, 36, .1);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, .3);
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .warn-dismiss:hover {
+      background: rgba(251, 191, 36, .18);
+      transform: translateY(-1px);
+    }
+
+    /* ── Admin PAUSE overlay (no dismiss — admin must resume) */
+    .pause-overlay {
+      background: rgba(0, 0, 0, 0.95);
+    }
+
+    .pause-icon-ring {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      background: rgba(249, 115, 22, .08);
+      border: 2px solid rgba(249, 115, 22, .25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      animation: pausePulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pausePulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, .2);
+      }
+
+      50% {
+        box-shadow: 0 0 0 18px rgba(249, 115, 22, 0);
+      }
+    }
+
+    .pause-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      color: #f97316;
+      letter-spacing: .04em;
+    }
+
+    .pause-subtitle {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.817);
+      text-align: center;
+      max-width: 380px;
+      line-height: 1.6;
+    }
+
+    .pause-ticker {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: rgba(249, 115, 22, .5);
+      letter-spacing: .12em;
+      animation: blink 1.2s step-start infinite;
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.2;
+      }
+    }
+
+    /* ── Admin TERMINATE / Submitted / Disqualified overlay */
+    .result-overlay {
+      background: rgba(0, 0, 0, 0.97);
+    }
+
+    .result-icon {
+      font-size: 56px;
+      margin-bottom: 4px;
+    }
+
+    .result-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 30px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .result-title.success {
+      color: #10b981;
+    }
+
+    .result-title.disqualified {
+      color: #ef4444;
+    }
+
+    .result-title.timeout {
+      color: #f97316;
+    }
+
+    .result-subtitle {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.735);
+      text-align: center;
+      max-width: 420px;
+      line-height: 1.6;
+    }
+
+    /* Final score badge inside result overlay */
+    .final-score-badge {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid rgba(255, 255, 255, .08);
+      border-radius: 16px;
+      padding: 18px 36px;
+      margin-top: 4px;
+    }
+
+    .fsb-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .16em;
+      color: rgba(255, 255, 255, 0.703);
+      text-transform: uppercase;
+    }
+
+    .fsb-score {
+      font-family: 'Sora', sans-serif;
+      font-size: 40px;
+      font-weight: 800;
+    }
+
+    .fsb-score.good {
+      color: #10b981;
+    }
+
+    .fsb-score.mid {
+      color: #f97316;
+    }
+
+    .fsb-score.low {
+      color: #ef4444;
+    }
+
+    .fsb-max {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.468);
+      align-self: flex-end;
+      margin-bottom: 6px;
+    }
+
+    .result-footer {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.495);
+      letter-spacing: .12em;
+      margin-top: 8px;
+    }
+
+    .divider {
+      width: 1px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.336);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════ TAB-SWITCH FREEZE OVERLAY -->
+  <div class="overlay freeze-overlay" id="freezeOverlay">
+    <div style="font-size:40px; margin-bottom:8px;">⛔</div>
+    <div class="freeze-title">Tab Switch Detected!</div>
+    <div class="freeze-subtitle">You are not allowed to switch tabs during the exam. This violation has been reported to
+      the invigilator.</div>
+    <div class="freeze-warning-count" id="freezeWarningText">Warning 1 of 3</div>
+    <button class="freeze-btn" id="resumeBtn" onclick="resumeExam()">Return to Exam</button>
+  </div>
+
+  <!-- ═══════════════════════════════════ ADMIN WARN OVERLAY -->
+  <div class="overlay warn-overlay" id="warnOverlay">
+    <div class="warn-card">
+      <div class="warn-icon">📢</div>
+      <div class="warn-title">Invigilator Warning</div>
+      <div class="warn-message" id="warnMessage">Please maintain exam integrity.</div>
+      <button class="warn-dismiss" onclick="dismissWarn()">I Understand</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ ADMIN PAUSE OVERLAY (no dismiss) -->
+  <div class="overlay pause-overlay" id="pauseOverlay">
+    <div class="pause-icon-ring">⏸</div>
+    <div class="pause-title">Exam Paused</div>
+    <div class="pause-subtitle">Your exam has been paused by the invigilator. Please wait — do not close this window.
+    </div>
+    <div class="pause-ticker">WAITING FOR INVIGILATOR...</div>
+  </div>
+
+  <!-- ═══════════════════════════════════ RESULT OVERLAY (submit / terminate / timeout) -->
+  <div class="overlay result-overlay" id="resultOverlay">
+    <div class="result-icon" id="resultIcon">✅</div>
+    <div class="result-title success" id="resultTitle">Exam Submitted</div>
+    <div class="result-subtitle" id="resultSubtitle">Your exam has been submitted successfully.</div>
+    <div class="final-score-badge" id="finalScoreBadge">
+      <div>
+        <div class="fsb-label">Final Score</div>
+        <div class="fsb-score good" id="finalScoreNum">100</div>
+      </div>
+      <div class="fsb-max">/100</div>
+    </div>
+    <div class="result-footer">CHECKMATE — EXAM INTEGRITY SYSTEM</div>
+  </div>
+
+  <!-- ═══════════════════════════════════ HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">
+        <div class="logo-inner"></div>
+      </div>
+      <span class="brand">CHECKMATE</span>
+      <div class="divider"></div>
+      <span class="student-info" id="studentInfo">STUDENT EXAM — PC-07</span>
+    </div>
+    <div class="header-right">
+      <div class="warning-count">Tab Warnings: <span id="warningCountDisplay">0</span>/3</div>
+      <div class="notif-wrap" id="notifWrap">
+        <button class="notif-btn" id="notifBtn" type="button" aria-label="Penalty notifications" aria-haspopup="dialog"
+          aria-expanded="false">
+          🔔
+        </button>
+        <div class="notif-badge" id="notifBadge" aria-label="Unread notifications">0</div>
+        <div class="notif-panel" id="notifPanel" role="dialog" aria-label="Penalty notifications panel">
+          <div class="notif-head">
+            <div class="notif-title"><span aria-hidden="true">📌</span> Notifications</div>
+            <div class="notif-actions">
+              <button class="notif-link" id="notifMarkAllBtn" type="button">Mark all read</button>
+              <button class="notif-link" id="notifClearBtn" type="button">Clear</button>
+            </div>
+          </div>
+          <div class="notif-list" id="notifList">
+            <div class="notif-empty" id="notifEmpty">No penalty notifications yet.</div>
+          </div>
+        </div>
+      </div>
+      <div class="timer" id="timer">45:00</div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════ LIVE SCORE BAR -->
+  <div class="score-bar" id="scoreBar">
+    <span class="score-label"><span class="score-shield">🛡</span> INTEGRITY SCORE</span>
+    <div class="score-track">
+      <div class="score-fill" id="scoreFill" style="width:100%"></div>
+    </div>
+    <div class="score-number" id="scoreNum">100<span style="font-size:10px;opacity:.4">/100</span></div>
+    <div class="penalty-toast" id="penaltyToast">
+      <span class="p-icon">−</span>
+      <span class="p-text" id="pDeduction">10</span>
+      <span class="p-reason" id="pReason">USB Device</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ MAIN -->
+  <main>
+    <div>
+      <div class="progress-info">
+        <span id="progressText">Question 1 of 7</span>
+        <span id="answeredText">0 answered</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width:14%"></div>
+      </div>
+    </div>
+
+    <div class="question-card" id="questionCard"></div>
+
+    <div class="q-navigator">
+      <span class="q-nav-label">Jump to</span>
+      <div id="qNavigator" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+    </div>
+  </main>
+
+  <!-- Penalty notification (marks deducted — server-driven via socket or /alert response) -->
+  <div class="penalty-notification" id="penaltyNotification" role="status" aria-live="polite" aria-atomic="true">
+    <div class="pn-title"><span aria-hidden="true">⚠</span> Penalty applied</div>
+    <div class="pn-main">
+      <span class="pn-marks" id="pnMarks">−5</span> <span class="pn-reason" id="pnReasonText">marks · Tab Switch</span>
+    </div>
+    <div class="pn-foot">Integrity score is now <strong id="pnScoreAfter">95</strong> / 100</div>
+  </div>
+
+  <script>
+    // ════════════════════════════════════════════════════════ CONFIG
+    const SERVER_URL = 'http://localhost:3000';
+    const MACHINE_ID = new URLSearchParams(window.location.search).get('pc') || 'PC-07';
+    document.getElementById('studentInfo').textContent = `STUDENT EXAM — ${MACHINE_ID}`;
+
+    const STATE_KEY = `checkmate_exam_${MACHINE_ID}`;
+    const socket = io(SERVER_URL);
+
+    // ════════════════════════════════════════════════════════ SOCKET ROOM
+    socket.on('connect', () => {
+      socket.emit('join_room', { machineId: MACHINE_ID });
+    });
+
+    // ════════════════════════════════════════════════════════ SCORE STATE
+    let currentScore = localStorage.getItem("score_" + MACHINE_ID);
+
+    if (currentScore === null) {
+      currentScore = 100;
+    } else {
+      currentScore = parseInt(currentScore);
+    }
+
+    // On page load, fetch session from server so score survives page refresh
+    fetch(`${SERVER_URL}/session/${MACHINE_ID}`)
+      .then(r => r.json())
+      .then(session => {
+        const serverScore = session.current_score;
+
+        if (serverScore !== undefined && serverScore !== null) {
+          currentScore = serverScore;
+        }
+
+        updateScoreUI(currentScore, null, null);  // no toast on load
+        // Restore blocked states
+        if (session.status === 'paused') showPauseOverlay();
+        if (session.status === 'terminated') showTerminatedFromSession(session);
+      })
+      .catch(() => { /* server offline — default 100 */ });
+
+    let penaltyNotifHideTimer = null;
+    let lastPenaltySig = '';
+
+    // ════════════════════════════════════════════════════════ NOTIFICATIONS (PERSISTED)
+    const NOTIF_KEY = `checkmate_notifications_${MACHINE_ID}`;
+    const MAX_NOTIFS = 30;
+    let notifications = [];
+
+    function safeParseJSON(raw, fallback) {
+      try { return raw ? JSON.parse(raw) : fallback; } catch { return fallback; }
+    }
+
+    function loadNotifications() {
+      notifications = safeParseJSON(localStorage.getItem(NOTIF_KEY), []);
+      if (!Array.isArray(notifications)) notifications = [];
+      renderNotifications();
+      updateNotifBadge();
+    }
+
+    function saveNotifications() {
+      try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications.slice(0, MAX_NOTIFS))); } catch { }
+    }
+
+    function formatTimeShort(ts) {
+      // ts is ISO string or locale string
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function addNotification({ kind, title, description, deduction, scoreAfter }) {
+      const nowIso = new Date().toISOString();
+      const item = {
+        id: `${nowIso}|${kind}|${title}|${deduction ?? ''}|${scoreAfter ?? ''}`,
+        kind: kind || 'info',
+        title: title || 'Notification',
+        description: description || '',
+        deduction: typeof deduction === 'number' ? deduction : null,
+        scoreAfter: typeof scoreAfter === 'number' ? scoreAfter : null,
+        createdAt: nowIso,
+        unread: true
+      };
+
+      // De-dupe consecutive identical items
+      const prev = notifications[0];
+      if (prev && prev.title === item.title && prev.description === item.description && prev.deduction === item.deduction) {
+        return;
+      }
+
+      notifications.unshift(item);
+      notifications = notifications.slice(0, MAX_NOTIFS);
+      saveNotifications();
+      renderNotifications();
+      updateNotifBadge();
+    }
+
+    function unreadCount() {
+      return notifications.reduce((acc, n) => acc + (n && n.unread ? 1 : 0), 0);
+    }
+
+    function updateNotifBadge() {
+      const badge = document.getElementById('notifBadge');
+      const c = unreadCount();
+      badge.textContent = String(c);
+      badge.classList.toggle('show', c > 0);
+    }
+
+    function renderNotifications() {
+      const list = document.getElementById('notifList');
+      const empty = document.getElementById('notifEmpty');
+      if (!list || !empty) return;
+
+      // Remove existing items except the empty placeholder
+      Array.from(list.querySelectorAll('.notif-item')).forEach(el => el.remove());
+
+      if (!notifications.length) {
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      const frag = document.createDocumentFragment();
+      notifications.forEach(n => {
+        const el = document.createElement('div');
+        el.className = `notif-item ${n.unread ? 'unread' : ''}`;
+        el.innerHTML = `
+          <div class="ni-dot" aria-hidden="true"></div>
+          <div class="ni-main">
+            <div class="ni-top">
+              <div class="ni-type">${escapeHtml(n.title)}</div>
+              <div class="ni-time">${escapeHtml(formatTimeShort(n.createdAt))}</div>
+            </div>
+            <div class="ni-desc">${renderNotifDesc(n)}</div>
+          </div>
+        `;
+        frag.appendChild(el);
+      });
+      list.appendChild(frag);
+    }
+
+    function renderNotifDesc(n) {
+      const parts = [];
+      if (n.description) parts.push(escapeHtml(n.description));
+      if (typeof n.deduction === 'number') parts.push(`<strong>−${escapeHtml(String(n.deduction))}</strong> marks`);
+      if (typeof n.scoreAfter === 'number') parts.push(`Score: <strong>${escapeHtml(String(n.scoreAfter))}</strong>/100`);
+      return parts.join(' · ') || '—';
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function openNotifPanel() {
+      const panel = document.getElementById('notifPanel');
+      const btn = document.getElementById('notifBtn');
+      if (!panel || !btn) return;
+      panel.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+      markAllRead();
+    }
+
+    function closeNotifPanel() {
+      const panel = document.getElementById('notifPanel');
+      const btn = document.getElementById('notifBtn');
+      if (!panel || !btn) return;
+      panel.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleNotifPanel() {
+      const panel = document.getElementById('notifPanel');
+      if (!panel) return;
+      if (panel.classList.contains('open')) closeNotifPanel();
+      else openNotifPanel();
+    }
+
+    function markAllRead() {
+      let changed = false;
+      notifications = notifications.map(n => {
+        if (n && n.unread) { changed = true; return { ...n, unread: false }; }
+        return n;
+      });
+      if (changed) {
+        saveNotifications();
+        renderNotifications();
+      }
+      updateNotifBadge();
+    }
+
+    function clearNotifications() {
+      notifications = [];
+      saveNotifications();
+      renderNotifications();
+      updateNotifBadge();
+    }
+
+    function showPenaltyNotification(deduction, reason, newScore) {
+      if (typeof deduction !== 'number' || !reason) return;
+      const sig = `${deduction}|${reason}|${newScore}`;
+      if (sig === lastPenaltySig) return;
+      lastPenaltySig = sig;
+      setTimeout(() => { lastPenaltySig = ''; }, 1200);
+
+      const panel = document.getElementById('penaltyNotification');
+      document.getElementById('pnMarks').textContent = `−${deduction}`;
+      document.getElementById('pnReasonText').textContent = `marks · ${reason}`;
+      document.getElementById('pnScoreAfter').textContent = String(newScore);
+      panel.classList.add('show');
+      if (penaltyNotifHideTimer) clearTimeout(penaltyNotifHideTimer);
+      penaltyNotifHideTimer = setTimeout(() => panel.classList.remove('show'), 5500);
+
+      // Persisted notification history
+      addNotification({
+        kind: 'penalty',
+        title: 'Penalty Applied',
+        description: reason,
+        deduction,
+        scoreAfter: newScore
+      });
+    }
+
+    // ════════════════════════════════════════════════════════ SCORE UI
+    function updateScoreUI(score, deduction, reason) {
+      currentScore = score;
+
+      // 🔥 IMPORTANT FIX
+      localStorage.setItem("score_" + MACHINE_ID, score);
+
+      const pct = score;
+
+      const fill = document.getElementById('scoreFill');
+      fill.style.width = pct + '%';
+      fill.className = 'score-fill' + (pct < 50 ? ' danger' : pct < 70 ? ' warn' : '');
+
+      const numEl = document.getElementById('scoreNum');
+      numEl.innerHTML = `${score}<span style="font-size:10px;opacity:.4">/100</span>`;
+      numEl.className = 'score-number' + (pct < 50 ? ' danger' : pct < 70 ? ' warn' : '');
+
+      if (typeof deduction === 'number' && reason) {
+        document.getElementById('pDeduction').textContent = deduction;
+        document.getElementById('pReason').textContent = reason;
+        const toast = document.getElementById('penaltyToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 4000);
+        showPenaltyNotification(deduction, reason, score);
+      }
+    }
+
+    // ════════════════════════════════════════════════════════ QUESTIONS
+    const questions = [
+      { type: 'mcq', text: 'Which data structure uses LIFO (Last In First Out) principle?', options: ['Queue', 'Stack', 'Linked List', 'Tree'], correct: 1 },
+      { type: 'mcq', text: 'What is the time complexity of Binary Search?', options: ['O(n)', 'O(n²)', 'O(log n)', 'O(1)'], correct: 2 },
+      { type: 'mcq', text: 'Which of the following is NOT a programming paradigm?', options: ['Object-Oriented', 'Functional', 'Declarative', 'Relational'], correct: 3 },
+      { type: 'mcq', text: 'What does HTTP stand for?', options: ['HyperText Transfer Protocol', 'High Transfer Text Protocol', 'HyperText Transmission Process', 'Host Transfer Technology Protocol'], correct: 0 },
+      { type: 'mcq', text: 'Which sorting algorithm has the best average case time complexity?', options: ['Bubble Sort', 'Selection Sort', 'Merge Sort', 'Insertion Sort'], correct: 2 },
+      { type: 'code', text: 'Write a function in any programming language that takes an array of integers and returns the sum of all even numbers.', placeholder: '// Write your solution here\n\nfunction sumOfEvens(arr) {\n  // your code here\n}' },
+      { type: 'code', text: 'Write a function to check if a given string is a palindrome (reads the same forwards and backwards). Example: "racecar" is a palindrome.', placeholder: '// Write your solution here\n\nfunction isPalindrome(str) {\n  // your code here\n}' }
+    ];
+
+    // ════════════════════════════════════════════════════════ STATE PERSISTENCE
+    function saveState() {
+      sessionStorage.setItem(STATE_KEY, JSON.stringify({
+        currentQ, answers, tabWarnings, examActive, timeLeft, submitted, submitReason
+      }));
+    }
+
+    function loadState() {
+      try { const r = sessionStorage.getItem(STATE_KEY); return r ? JSON.parse(r) : null; }
+      catch (e) { return null; }
+    }
+
+    const saved = loadState();
+    let currentQ = saved ? saved.currentQ : 0;
+    let answers = saved ? saved.answers : new Array(questions.length).fill(null);
+    let tabWarnings = saved ? saved.tabWarnings : 0;
+    let examActive = saved ? saved.examActive : true;
+    let timeLeft = saved ? saved.timeLeft : 45 * 60;
+    let submitted = saved ? saved.submitted : false;
+    let submitReason = saved ? saved.submitReason : null;
+
+    // ════════════════════════════════════════════════════════ TIMER
+    const timerEl = document.getElementById('timer');
+    const timerInterval = setInterval(() => {
+      if (!examActive) return;
+      timeLeft--;
+      const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+      const s = (timeLeft % 60).toString().padStart(2, '0');
+      timerEl.textContent = `${m}:${s}`;
+      if (timeLeft <= 300) timerEl.className = 'timer warning';
+      if (timeLeft <= 60) timerEl.className = 'timer danger';
+      if (timeLeft <= 0) submitExam('Time Up');
+      saveState();
+    }, 1000);
+
+    // ════════════════════════════════════════════════════════ RENDER
+    function renderQuestion() {
+      const q = questions[currentQ];
+      const card = document.getElementById('questionCard');
+      document.getElementById('progressText').textContent = `Question ${currentQ + 1} of ${questions.length}`;
+      document.getElementById('answeredText').textContent = `${answers.filter(a => a !== null).length} answered`;
+      document.getElementById('progressFill').style.width = `${((currentQ + 1) / questions.length) * 100}%`;
+
+      if (q.type === 'mcq') {
+        card.innerHTML = `
+          <div class="question-meta">
+            <span class="q-number">Q${currentQ + 1}</span>
+            <span class="q-type-badge badge-mcq">Multiple Choice</span>
+          </div>
+          <div class="question-text">${q.text}</div>
+          <div class="options">
+            ${q.options.map((opt, i) => `
+              <div class="option ${answers[currentQ] === i ? 'selected' : ''}" onclick="selectOption(${i})">
+                <div class="option-key">${['A', 'B', 'C', 'D'][i]}</div>
+                <div class="option-text">${opt}</div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="nav-buttons">
+            <button class="btn btn-prev" onclick="prevQ()" ${currentQ === 0 ? 'disabled' : ''}>Previous</button>
+            <div style="display:flex;gap:10px;">
+              ${currentQ === questions.length - 1
+            ? `<button class="btn btn-submit" onclick="submitExam('Manual')">Submit Exam</button>`
+            : `<button class="btn btn-next" onclick="nextQ()">Next</button>`}
+            </div>
+          </div>`;
+      } else {
+        card.innerHTML = `
+          <div class="question-meta">
+            <span class="q-number">Q${currentQ + 1}</span>
+            <span class="q-type-badge badge-code">Coding</span>
+          </div>
+          <div class="question-text">${q.text}</div>
+          <div class="code-hint">// Write your solution below</div>
+          <textarea class="code-editor" id="codeAnswer"
+            placeholder="${q.placeholder}"
+            onchange="saveCode(this.value)"
+            oninput="saveCode(this.value)">${answers[currentQ] || ''}</textarea>
+          <div class="nav-buttons">
+            <button class="btn btn-prev" onclick="prevQ()" ${currentQ === 0 ? 'disabled' : ''}>Previous</button>
+            <div style="display:flex;gap:10px;">
+              ${currentQ === questions.length - 1
+            ? `<button class="btn btn-submit" onclick="submitExam('Manual')">Submit Exam</button>`
+            : `<button class="btn btn-next" onclick="nextQ()">Next</button>`}
+            </div>
+          </div>`;
+      }
+      renderNavigator();
+    }
+
+    function renderNavigator() {
+      document.getElementById('qNavigator').innerHTML = questions.map((_, i) =>
+        `<div class="q-dot ${i === currentQ ? 'current' : ''} ${answers[i] !== null ? 'answered' : ''}" onclick="jumpTo(${i})">${i + 1}</div>`
+      ).join('');
+    }
+
+    function selectOption(i) { answers[currentQ] = i; renderQuestion(); }
+    function saveCode(val) { answers[currentQ] = val; renderNavigator(); }
+    function nextQ() { if (currentQ < questions.length - 1) { currentQ++; renderQuestion(); } }
+    function prevQ() { if (currentQ > 0) { currentQ--; renderQuestion(); } }
+    function jumpTo(i) { currentQ = i; renderQuestion(); }
+
+    // ════════════════════════════════════════════════════════ TAB-SWITCH DETECTION
+    let isUnloading = false;
+    window.addEventListener('beforeunload', () => { isUnloading = true; });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!examActive || isUnloading) return;
+      if (document.hidden) {
+        tabWarnings++;
+
+        // 🔥 SEND TO SERVER
+        sendViolationAlert('Tab Switch', 1);
+        addNotification({
+          kind: 'violation',
+          title: 'Violation Detected',
+          description: `Tab Switch (warning ${tabWarnings} of 3)`
+        });
+
+        document.getElementById('warningCountDisplay').textContent = tabWarnings;
+        saveState();
+
+        if (tabWarnings >= 3) {
+          submitExam('Tab Switch — 3 Warnings');
+        } else {
+          document.getElementById('freezeWarningText').textContent = `Warning ${tabWarnings} of 3`;
+          document.getElementById('freezeOverlay').classList.add('active');
+        }
+
+      }
+    });
+
+    function resumeExam() {
+      document.getElementById('freezeOverlay').classList.remove('active');
+    }
+
+    // ════════════════════════════════════════════════════════ VIOLATION ALERT
+    function sendViolationAlert(type, penaltyCode) {
+      fetch(`${SERVER_URL}/alert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          machineId: MACHINE_ID,
+          machine_id: MACHINE_ID,
+          type: type,
+          violation_type: type,
+          penalty_code: penaltyCode,
+          timestamp: new Date().toLocaleString('en-IN')
+        })
+      })
+        .then(r => r.json())
+        .then(data => {
+          const p = data && data.scorePayload;
+          if (p && typeof p.current_score === 'number' && typeof p.deduction === 'number' && p.reason) {
+            updateScoreUI(p.current_score, p.deduction, p.reason);
+          }
+        })
+        .catch(console.error);
+    }
+
+    // ════════════════════════════════════════════════════════ RESULT OVERLAY HELPERS
+    function showResultOverlay({ icon, titleText, titleClass, subtitle, score }) {
+      examActive = false;
+      clearInterval(timerInterval);
+      document.getElementById('resultIcon').textContent = icon;
+      document.getElementById('resultTitle').textContent = titleText;
+      document.getElementById('resultTitle').className = `result-title ${titleClass}`;
+      document.getElementById('resultSubtitle').textContent = subtitle;
+
+      const s = score ?? currentScore;
+      document.getElementById('finalScoreNum').textContent = s;
+      document.getElementById('finalScoreNum').className =
+        'fsb-score' + (s >= 70 ? ' good' : s >= 50 ? ' mid' : ' low');
+
+      document.getElementById('resultOverlay').classList.add('active');
+    }
+
+    function showPauseOverlay() {
+      document.getElementById('pauseOverlay').classList.add('active');
+    }
+
+    function hidePauseOverlay() {
+      document.getElementById('pauseOverlay').classList.remove('active');
+    }
+
+    function showTerminatedFromSession(session) {
+      showResultOverlay({
+        icon: '🔒',
+        titleText: 'Exam Terminated',
+        titleClass: 'disqualified',
+        subtitle: 'Your exam was terminated by the invigilator.',
+        score: session.current_score
+      });
+    }
+
+    // ════════════════════════════════════════════════════════ SUBMIT EXAM
+    function submitExam(reason) {
+      if (submitted) return;   // guard against double-submit
+      submitted = true;
+      submitReason = reason;
+      examActive = false;
+      saveState();
+
+      const isTabTerminated = reason === 'Tab Switch — 3 Warnings';
+      const isTimeUp = reason === 'Time Up';
+      const isTerminated = reason === 'Admin Terminated';
+
+      if (isTabTerminated) {
+        showResultOverlay({
+          icon: '🔒', titleText: 'Exam Terminated', titleClass: 'disqualified',
+          subtitle: 'You switched tabs 3 times. Your exam has been automatically terminated.',
+          score: currentScore
+        });
+        sendViolationAlert('Tab Switch — Exam Terminated', null);
+      } else if (isTimeUp) {
+        showResultOverlay({
+          icon: '⏰', titleText: "Time's Up", titleClass: 'timeout',
+          subtitle: 'Your time elapsed. The exam has been automatically submitted.',
+          score: currentScore
+        });
+        notifySubmit('Time Up');
+      } else if (isTerminated) {
+        // Already shown from socket event — nothing extra needed
+      } else {
+        showResultOverlay({
+          icon: '✅', titleText: 'Exam Submitted Successfully', titleClass: 'success',
+          subtitle: 'Your exam has been submitted. The invigilator has been notified.',
+          score: currentScore
+        });
+        notifySubmit('Manual');
+      }
+    }
+
+    function notifySubmit(reason) {
+      fetch(`${SERVER_URL}/alert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          machineId: MACHINE_ID, machine_id: MACHINE_ID,
+          type: `Exam Submitted — ${reason}`,
+          violation_type: `Exam Submitted — ${reason}`,
+          timestamp: new Date().toLocaleString('en-IN')
+        })
+      }).catch(console.error);
+    }
+
+    // ════════════════════════════════════════════════════════ SOCKET EVENTS
+
+    // Admin reset
+    socket.on('reset', () => {
+      sessionStorage.removeItem(STATE_KEY);
+      location.reload();
+    });
+
+    // Live score update (from penalty applied server-side)
+    socket.on('score_update', ({ current_score, deduction, reason }) => {
+      // Always trust server as the source of truth to avoid double-deduction.
+      // Server sends: { current_score, deduction, reason }
+      if (typeof current_score === 'number') {
+        updateScoreUI(current_score, deduction ?? null, reason ?? null);
+      }
+    });
+
+    // Admin → Warn
+    socket.on('warn_student', ({ message }) => {
+      document.getElementById('warnMessage').textContent = message || 'Please maintain exam integrity.';
+      document.getElementById('warnOverlay').classList.add('active');
+      addNotification({
+        kind: 'warn',
+        title: 'Invigilator Warning',
+        description: message || 'Please maintain exam integrity.'
+      });
+    });
+
+    // Admin → Pause
+    socket.on('exam_paused', () => {
+      showPauseOverlay();
+      addNotification({
+        kind: 'status',
+        title: 'Exam Paused',
+        description: 'Paused by invigilator.'
+      });
+    });
+
+    // Admin → Resume
+    socket.on('exam_resumed', () => {
+      hidePauseOverlay();
+      addNotification({
+        kind: 'status',
+        title: 'Exam Resumed',
+        description: 'Resumed by invigilator.'
+      });
+    });
+
+    // Admin → Terminate
+    socket.on('exam_terminated', ({ finalScore }) => {
+      submitted = true;
+      submitReason = 'Admin Terminated';
+      saveState();
+      // Hide pause overlay if it was showing
+      hidePauseOverlay();
+      showResultOverlay({
+        icon: '🔒',
+        titleText: 'Exam Terminated',
+        titleClass: 'disqualified',
+        subtitle: 'Your exam has been terminated by the invigilator.',
+        score: finalScore
+      });
+      addNotification({
+        kind: 'status',
+        title: 'Exam Terminated',
+        description: 'Terminated by invigilator.',
+        scoreAfter: typeof finalScore === 'number' ? finalScore : null
+      });
+    });
+
+    // ════════════════════════════════════════════════════════ WARN DISMISS
+    function dismissWarn() {
+      document.getElementById('warnOverlay').classList.remove('active');
+    }
+
+    // ════════════════════════════════════════════════════════ INIT
+    document.getElementById('warningCountDisplay').textContent = tabWarnings;
+    loadNotifications();
+
+    // Header notif interactions
+    document.getElementById('notifBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleNotifPanel();
+    });
+    document.getElementById('notifMarkAllBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      markAllRead();
+    });
+    document.getElementById('notifClearBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      clearNotifications();
+      closeNotifPanel();
+    });
+    document.addEventListener('click', (e) => {
+      const wrap = document.getElementById('notifWrap');
+      const panel = document.getElementById('notifPanel');
+      if (!wrap || !panel) return;
+      if (panel.classList.contains('open') && !wrap.contains(e.target)) closeNotifPanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeNotifPanel();
+    });
+
+    // If exam was already submitted when refreshed, restore the result overlay
+    if (submitted && submitReason !== null) {
+      const isTabTerminated = submitReason === 'Tab Switch — 3 Warnings';
+      const isTimeUp = submitReason === 'Time Up';
+      const isAdminTerm = submitReason === 'Admin Terminated';
+
+      if (isTabTerminated || isAdminTerm) {
+        showResultOverlay({
+          icon: '🔒', titleText: 'Exam Terminated', titleClass: 'disqualified',
+          subtitle: isAdminTerm
+            ? 'Your exam was terminated by the invigilator.'
+            : 'You switched tabs 3 times. Your exam has been automatically terminated.',
+          score: currentScore
+        });
+      } else if (isTimeUp) {
+        showResultOverlay({
+          icon: '⏰', titleText: "Time's Up", titleClass: 'timeout',
+          subtitle: 'Your time elapsed. The exam has been automatically submitted.',
+          score: currentScore
+        });
+      } else {
+        showResultOverlay({
+          icon: '✅', titleText: 'Exam Submitted Successfully', titleClass: 'success',
+          subtitle: 'Your exam has been submitted. The invigilator has been notified.',
+          score: currentScore
+        });
+      }
+    }
+
+    renderQuestion();
+  </script>
+</body>
+
+</html>
