@@ -1176,7 +1176,7 @@
 
     // ════════════════════════════════════════════════════════ LOAD SESSIONS FIRST (before rendering tiles)
     let sessionsData = {};
-    fetch('"https://checkmate-o3zc.onrender.com/api/violations"')
+    fetch('"https://checkmate-o3zc.onrender.com/violations"')
       .then(r => r.json())
       .then(sessions => {
         sessions.forEach(s => {
@@ -1216,7 +1216,7 @@
 
     function loadPastViolations() {
       // Load past violations
-      fetch("https://checkmate-o3zc.onrender.com/api/violations")
+      fetch("https://checkmate-o3zc.onrender.com/violations")
         .then(r => r.json())
         .then(data => {
           data.reverse().forEach(v => {
